@@ -145,11 +145,11 @@ class TCPListener:
     def process_client(self, client_socket, address):
         log.info('Receiving messages from {}'.format(address))
         header = TCPListener.recvn(client_socket, NetworkParams.tcp_packet_header_length)
-        if not header:
+        if header is None:
             return
         timestamp, mac, length = TCPListener.parse_message(header)
         message_text = TCPListener.recvn(client_socket, length)
-        if not message_text:
+        if message_text is None:
             return
         message_text = message_text.decode('utf-8')
 
