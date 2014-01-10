@@ -62,9 +62,10 @@ class UDPListener:
             self.messages_sent = messages_sent
             self.in_progress = in_progress
 
-    def __init__(self, messages):
+    def __init__(self, messages, my_id):
         self._clients = {}
         self._messages = messages
+        self._my_id = my_id
 
     def __call__(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -75,6 +76,8 @@ class UDPListener:
             my_time = current_time()
             try:
                 timestamp, mac = UDPListener.parse_udp(data)
+                if mac == self._my_id: # Then ignore
+                    continue
                 log.info("UDP message: ip={}, time={}, mac={}".format(
                     address, format_time(timestamp), format_mac(mac)))
                 if mac not in self._clients:
@@ -236,7 +239,7 @@ class ChatApp(QtCore.QObject):
         self._my_messages = []
         self._form.show()
         threading.Thread(target=UDPBroadcaster(self.mac), daemon=True).start()
-        threading.Thread(target=UDPListener(self._my_messages), daemon=True).start()
+        threading.Thread(target=UDPListener(self._my_messages, self.mac), daemon=True).start()
         threading.Thread(target=TCPListener(self), daemon=True).start()
 
     def send_message(self):
@@ -246,7 +249,6 @@ class ChatApp(QtCore.QObject):
         self.clear_message_text()
 
     def _process_message(self, message):
-        log.info("Process message on thread {}".format(threading.current_thread()))
         nickname = re.match('Nick: (.*)$', message.text)
         if nickname:
             message.author.set_nickname(nickname.group(1))
@@ -254,7 +256,6 @@ class ChatApp(QtCore.QObject):
         self.refresh_chat()
 
     def new_message(self, message):
-        log.info("New message on thread {}".format(threading.current_thread()))
         self.new_message_signal.emit(message)
 
     def clear_message_text(self):
